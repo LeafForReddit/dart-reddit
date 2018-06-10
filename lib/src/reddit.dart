@@ -80,7 +80,7 @@ class Reddit {
    * Using OAuth will be required after August 3, 2015:
    * https://www.reddit.com/r/redditdev/comments/2ujhkr/important_api_licensing_terms_clarified/
    */
-  void authSetup(String identifier, String secret) {
+  void authSetup(String identifier, {String secret: ''}) {
     if (_grant != null)
       throw new StateError("Should not call this method twice");
     if (_oauthEnabled) throw new StateError("OAuth2 is already enabled");
@@ -129,7 +129,7 @@ class Reddit {
    * The Reddit instance provided by the Future, is the same as the instance this method is invoked on.
    */
   Future<Reddit> authFinish(
-      {Map response, String code, String username, String password}) async {
+      {Map response, String code, String username, String password, String deviceId}) async {
     if (_grant == null) throw new StateError("Should first call setupOAuth2");
     if (_oauthEnabled) throw new StateError("OAuth2 is already enabled");
 
@@ -149,11 +149,15 @@ class Reddit {
       Response response = await _client.post(
           _TOKEN_ENDPOINT.replace(
               userInfo: "${_grant.identifier}:${_grant.secret}"),
-          body: {
-            "grant_type": "client_credentials",
+          body: (_grant.secret.isNotEmpty) ? {
+            "grant_type": _GrantType.clientCredentials,
             "username": username == null ? "" : username,
             "password": password == null ? "" : password,
             "duration": "permanent"
+          } : {
+            // APP-ONLY IMPLICIT AUTH
+            'grant_type': _GrantType.installedClient,
+            'device_id': deviceId
           });
       logger.fine(
           "Access token response: [${response.statusCode}] ${response.body}");
@@ -179,4 +183,9 @@ class Reddit {
       }
     }
   }
+}
+
+class _GrantType {
+  static final String clientCredentials = 'client_credentials';
+  static final String installedClient = 'https://oauth.reddit.com/grants/installed_client';
 }
